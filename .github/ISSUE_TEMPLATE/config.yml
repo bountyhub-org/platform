@@ -1,0 +1,8 @@
+﻿blank_issues_enabled: false
+contact_links:
+  - name: Need help? Create a discussion post
+    url: https://github.org/bountyhub-org/platform/discussions/new
+    about: If you have a question or need help, create a discussion post.
+  - name: Runner Bug/Feature Request
+    about: If you have found a bug in the runner, please create a bug report.
+    url: https://github.com/bountyhub-org/runner
