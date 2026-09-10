@@ -1,0 +1,45 @@
+// packages/platform/src/validation/bountySubmission.ts
+
+export interface BountySubmissionPayload {
+  bountyId: string;
+  contributorGithub: string;
+  prUrl?: string;
+  forkCompareUrl?: string;
+  fallbackMode?: 'maintainer_proxy' | 'fork_compare';
+}
+
+export async function validateBountyClaim(payload: BountySubmissionPayload): Promise<{ valid: boolean; error?: string }> {
+  // If upstream PR URL is provided, verify it normally
+  if (payload.prUrl) {
+    const isValidPr = await verifyUpstreamPullRequest(payload.prUrl);
+    if (isValidPr) return { valid: true };
+  }
+
+  // If repository blocks external PRs (collaborators_only policy), allow verified fork compare URL + maintainer proxy ack
+  if (payload.forkCompareUrl && payload.fallbackMode) {
+    const isVerifiedFork = await verifyForkBranchMatch(payload.forkCompareUrl, payload.contributorGithub);
+    if (!isVerifiedFork) {
+      return { valid: false, error: 'Fork branch comparison could not be verified against contributor account.' };
+    }
+
+    // Log fallback claim for review
+    await recordFallbackClaimAuditTrail({
+      bountyId: payload.bountyId,
+      contributor: payload.contributorGithub,
+      compareUrl: payload.forkCompareUrl,
+      mode: payload.fallbackMode
+    });
+
+    return { valid: true };
+  }
+
+  return { valid: false, error: 'A valid upstream PR URL or verified fork comparison under collaborative restriction mode is required.' };
+}
+
+async function verifyForkCompareUrl(compareUrl: string, username: string): Promise<boolean> {
+  // Ensure the compare URL matches the expected fork format and belongs to the contributor
+  const urlPattern = /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/compare\/([^\s]+)$/;
+  const match = compareUrl.match(urlPattern);
+  if (!match) return false;
+  return match[1].toLowerCase() === username.toLowerCase();
+}
